@@ -15,6 +15,7 @@
 | `02_map.md` | hmap, sync.Map, конкурентность, set |
 | ⭐ `03_interfaces.md` | iface/eface, nil trap, errors.Is/As |
 | ⭐ `04_defer_panic_recover.md` | LIFO, замыкания, recover из горутин |
+| `05_garbage_collector.md` | Tri-color mark-and-sweep, write barrier, escape analysis, GOGC, sync.Pool |
 
 ### concurrency/
 | Файл | Темы |
@@ -34,6 +35,7 @@
 | `05_mysql.md` | InnoDB, кластерный индекс, репликация, MySQL vs PostgreSQL |
 | `06_clickhouse.md` | Колоночное хранение, MergeTree, Materialized Views, OLAP |
 | `07_elasticsearch.md` | Инвертированный индекс, PromQL, bool query, маппинг, агрегации |
+| `08_rabbitmq.md` | Exchange типы, ACK/NACK, DLQ, prefetch, RabbitMQ vs Kafka |
 
 ### infrastructure/
 | Файл | Темы |
