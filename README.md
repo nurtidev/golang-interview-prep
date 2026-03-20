@@ -1,0 +1,109 @@
+# Golang Interview Prep
+
+Материалы для подготовки к Go-собеседованиям в формате лекций.
+Каждый файл: теория → примеры → вопросы с ответами.
+Источник тем: реальные собесы (Авито, Касперский, Uzum и др.)
+
+---
+
+## Структура
+
+### go-internals/
+| Файл | Темы |
+|------|------|
+| ⭐ `01_slices.md` | Устройство слайса, append, copy, утечки памяти |
+| `02_map.md` | hmap, sync.Map, конкурентность, set |
+| ⭐ `03_interfaces.md` | iface/eface, nil trap, errors.Is/As |
+| ⭐ `04_defer_panic_recover.md` | LIFO, замыкания, recover из горутин |
+
+### concurrency/
+| Файл | Темы |
+|------|------|
+| ⭐ `01_goroutines_scheduler.md` | GMP модель, work stealing, GOMAXPROCS |
+| ⭐ `02_channels.md` | Аксиомы каналов, select, nil канал, утечки |
+| `03_patterns.md` | Fan-In, Fan-Out, Pipeline, Worker Pool, Семафор |
+| `04_sync_primitives.md` | Mutex, RWMutex, atomic, CAS, WaitGroup, deadlock |
+
+### databases/
+| Файл | Темы |
+|------|------|
+| ⭐ `01_indexes_transactions.md` | B-Tree, GIN, составные индексы, ACID, уровни изоляции, оконные функции |
+| ⭐ `02_postgresql.md` | MVCC, WAL, JSONB, репликация, партиционирование, PgBouncer |
+| `03_redis.md` | Структуры данных, персистентность, кластер, паттерны кеширования, distributed lock |
+| `04_kafka.md` | Архитектура, партиции, consumer groups, гарантии доставки, Outbox pattern |
+| `05_mysql.md` | InnoDB, кластерный индекс, репликация, MySQL vs PostgreSQL |
+| `06_clickhouse.md` | Колоночное хранение, MergeTree, Materialized Views, OLAP |
+| `07_elasticsearch.md` | Инвертированный индекс, PromQL, bool query, маппинг, агрегации |
+
+### infrastructure/
+| Файл | Темы |
+|------|------|
+| `01_docker.md` | Namespaces, cgroups, OverlayFS, Dockerfile, multi-stage build, Compose |
+| `02_kubernetes.md` | Архитектура, Pod, Deployment, Service, Probes, HPA, rolling update |
+
+### observability/
+| Файл | Темы |
+|------|------|
+| `01_prometheus_grafana.md` | Типы метрик, PromQL, алёрты, SLO/SLA, инструментация Go |
+
+### os-internals/
+| Файл | Темы |
+|------|------|
+| `01_processes_threads_scheduling.md` | Процессы vs потоки, CFS планировщик, context switch, виртуальная память, syscalls |
+
+### networks/
+| Файл | Темы |
+|------|------|
+| `01_http_grpc_tcp.md` | TCP handshake, HTTP/1.1 vs 2, HTTPS, gRPC stream vs unary |
+
+### system-design/
+| Файл | Темы |
+|------|------|
+| ⭐ `01_fundamentals.md` | Scalability, Performance, back-of-the-envelope, CAP теорема |
+| `02_caching_api.md` | Стратегии кэширования, REST vs gRPC, rate limiting, observability |
+| `03_databases.md` | Выбор БД, SQL vs NoSQL, шардирование, денормализация |
+| `04_distributed_storage.md` | Репликация, консистентность, distributed transactions |
+| `05_patterns.md` | Монолит vs микросервисы, saga, CQRS, event sourcing |
+| ⭐ `06_cases_feed_chat.md` | Лента друзей (ВКонтакте/Instagram), мессенджер |
+| `07_cases_booking_drive.md` | Booking.com, Google Drive |
+| `08_cases_taxi_judge.md` | Яндекс.Такси, Leetcode/Online Judge |
+| `09_principles.md` | SOLID, DRY, KISS, YAGNI, TDD, Cohesion & Coupling |
+
+---
+
+## Топ вопросов по частоте (из реальных собесов)
+
+1. **Горутины и планировщик** — 4 раза
+2. **Каналы** — 4 раза
+3. **Индексы БД** — 4 раза
+4. **Select** — 3 раза
+5. **Транзакции / ACID** — 3 раза
+6. **Слайсы** — 2 раза
+7. **Defer** — 2 раза
+8. **Nil interface trap** — 1 раз (но почти всегда спрашивают)
+
+---
+
+## Быстрая подготовка к скринингу (1-2 часа)
+
+1. Аксиомы каналов — выучить наизусть
+2. GMP модель — уметь объяснить за 2 минуты
+3. Nil interface ловушка — знать код наизусть
+4. B-Tree индекс + составные индексы
+5. ACID + уровни изоляции (READ COMMITTED vs REPEATABLE READ)
+6. Worker Pool — уметь написать за 5 минут
+
+## Быстрая подготовка к full-loop (4-6 часов)
+
+**Go internals:** все файлы go-internals/ + concurrency/
+
+**System Design:** `01_fundamentals.md` → `06_cases_feed_chat.md` (разобрать хотя бы 2 кейса)
+
+**Databases:** `01_indexes_transactions.md` + `02_postgresql.md` + `04_kafka.md`
+
+**Вопросы для самопроверки перед собесом:**
+- Что такое GMP? Что происходит при блокирующем syscall?
+- Чем отличается буферизованный канал от небуферизованного?
+- Как работает MVCC в PostgreSQL?
+- В чём разница между REPEATABLE READ и SERIALIZABLE?
+- Как спроектировать ленту новостей для 10M DAU?
