@@ -16,6 +16,7 @@
 | ⭐ `03_interfaces.md` | iface/eface, nil trap, errors.Is/As |
 | ⭐ `04_defer_panic_recover.md` | LIFO, замыкания, recover из горутин |
 | `05_garbage_collector.md` | Tri-color mark-and-sweep, write barrier, escape analysis, GOGC, sync.Pool |
+| `06_memory_stack_heap.md` | Стек горутины, growable stack, heap, escape analysis, TCMalloc, аллокатор |
 
 ### concurrency/
 | Файл | Темы |
@@ -36,6 +37,7 @@
 | `06_clickhouse.md` | Колоночное хранение, MergeTree, Materialized Views, OLAP |
 | `07_elasticsearch.md` | Инвертированный индекс, PromQL, bool query, маппинг, агрегации |
 | `08_rabbitmq.md` | Exchange типы, ACK/NACK, DLQ, prefetch, RabbitMQ vs Kafka |
+| `09_functions_procedures.md` | Функции vs процедуры, триггеры, PL/pgSQL, вызов из Go |
 
 ### infrastructure/
 | Файл | Темы |
