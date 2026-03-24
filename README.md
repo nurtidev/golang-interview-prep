@@ -88,6 +88,15 @@
 | `08_cases_taxi_judge.md` | Яндекс.Такси, Leetcode/Online Judge |
 | `09_principles.md` | SOLID, DRY, KISS, YAGNI, TDD, Cohesion & Coupling |
 
+### question-bank/
+| Файл | Темы |
+|------|------|
+| `01_golang_top100.md` | Топ 100 вопросов по Go с ответами |
+| `02_databases_top20.md` | Топ 20 вопросов по базам данных |
+| `03_concurrency_top20.md` | Топ 20 вопросов по конкурентности |
+| `04_networks_top20.md` | Топ 20 вопросов по сетям |
+| `05_system_design_top20.md` | Топ 20 вопросов по System Design |
+
 ---
 
 ## Топ вопросов по частоте (из реальных собесов)
