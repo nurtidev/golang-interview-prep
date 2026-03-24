@@ -17,6 +17,7 @@
 | ⭐ `04_defer_panic_recover.md` | LIFO, замыкания, recover из горутин |
 | `05_garbage_collector.md` | Tri-color mark-and-sweep, write barrier, escape analysis, GOGC, sync.Pool |
 | `06_memory_stack_heap.md` | Стек горутины, growable stack, heap, escape analysis, TCMalloc, аллокатор |
+| `07_unsafe_performance.md` | unsafe.Pointer, zero-copy string↔[]byte, struct padding/false sharing, escape analysis, sync.Pool, pprof, flamegraph, GOGC/GOMEMLIMIT |
 
 ### concurrency/
 | Файл | Темы |
@@ -54,11 +55,13 @@
 | Файл | Темы |
 |------|------|
 | `01_processes_threads_scheduling.md` | Процессы vs потоки, CFS планировщик, context switch, виртуальная память, syscalls |
+| `02_memory_virtual.md` | Page table (4 уровня), TLB, page fault, mmap, huge pages, swap/OOM, epoll, io_uring, Go allocator internals |
 
 ### networks/
 | Файл | Темы |
 |------|------|
 | `01_http_grpc_tcp.md` | TCP handshake, HTTP/1.1 vs 2, HTTPS, gRPC stream vs unary |
+| `02_nat_bgp_mobile.md` | NAT/NAPT, NAT traversal (STUN/TURN/ICE), BGP, автономные системы, LTE/5G core (EPC/5GC), GTP туннели, Wireshark/tcpdump |
 
 ### system-design/
 | Файл | Темы |
