@@ -18,6 +18,8 @@
 | `05_garbage_collector.md` | Tri-color mark-and-sweep, write barrier, escape analysis, GOGC, sync.Pool |
 | `06_memory_stack_heap.md` | Стек горутины, growable stack, heap, escape analysis, TCMalloc, аллокатор |
 | `07_unsafe_performance.md` | unsafe.Pointer, zero-copy string↔[]byte, struct padding/false sharing, escape analysis, sync.Pool, pprof, flamegraph, GOGC/GOMEMLIMIT |
+| `08_testing.md` | Table-driven tests, testify, интерфейсы для тестируемости, моки, httptest, testcontainers, goleak, benchmarks |
+| `09_design_patterns.md` | Functional Options, Singleton, Factory, Builder, Adapter, Decorator, Observer, Strategy, Repository, Circuit Breaker, Outbox |
 
 ### concurrency/
 | Файл | Темы |
@@ -62,6 +64,16 @@
 |------|------|
 | `01_http_grpc_tcp.md` | TCP handshake, HTTP/1.1 vs 2, HTTPS, gRPC stream vs unary |
 | `02_nat_bgp_mobile.md` | NAT/NAPT, NAT traversal (STUN/TURN/ICE), BGP, автономные системы, LTE/5G core (EPC/5GC), GTP туннели, Wireshark/tcpdump |
+
+### security/
+| Файл | Темы |
+|------|------|
+| `01_web_security.md` | OWASP Top 10, SQL injection, XSS, JWT уязвимости, bcrypt/argon2, rate limiting, SSRF, CORS, secure headers, secrets management |
+
+### live-coding/
+| Файл | Темы |
+|------|------|
+| `01_network_tasks.md` | 10 боевых задач: sliding window, port scan detector, worker pool, rate limiter, log parser, DDoS detector, TTL cache, pipeline fan-out/fan-in, ring buffer, graceful shutdown |
 
 ### system-design/
 | Файл | Темы |
