@@ -74,6 +74,7 @@
 | Файл | Темы |
 |------|------|
 | `01_network_tasks.md` | 10 боевых задач: sliding window, port scan detector, worker pool, rate limiter, log parser, DDoS detector, TTL cache, pipeline fan-out/fan-in, ring buffer, graceful shutdown |
+| ⭐ `02_algorithms_complexity.md` | Big O, правила подсчёта, 10 паттернов: Two Pointers, Sliding Window, Binary Search, BFS, DFS, Backtracking, DP, Heap, Prefix Sum, Monotonic Stack |
 
 ### system-design/
 | Файл | Темы |
