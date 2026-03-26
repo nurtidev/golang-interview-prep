@@ -8,14 +8,19 @@
 ## 1. "Расскажи о себе" (elevator pitch, ~2 мин)
 
 > **Используй:** О себе + последние 2 места работы + что ищешь
+> **Акцент для high-load роли:** выдели опыт с нагрузкой, оптимизациями, инфраструктурой
 
-Я backend-разработчик с 4+ годами коммерческого опыта на Go. Начинал в Darwin Tech Labs — строил микросервисную торговую платформу: сервисы исполнения ордеров, управления балансами, интеграция с крипто-кошельками. Там же научился оптимизировать PostgreSQL под high-write нагрузку: индексы, партиционирование, покрытие критических путей тестами.
+Я backend-разработчик с 4+ годами коммерческого опыта на Go, специализируюсь на высоконагруженных системах в финтехе.
 
-После этого — Sergek Group, где разрабатывал платформу мониторинга городского трафика. Там впервые плотно поработал с ClickHouse как аналитической БД и провёл серьёзный рефакторинг критических путей с брокерами сообщений.
+Начинал в Darwin Tech Labs — строил микросервисную торговую платформу: сервисы исполнения ордеров, управления балансами, интеграция с крипто-кошельками. Там разбирался с high-write нагрузкой в PostgreSQL: партиционирование таблиц с миллионами записей, BRIN-индексы для временных рядов, покрывающие индексы. Первый опыт с event-driven архитектурой через RabbitMQ.
 
-Сейчас в eMoney.ge — это финтех, цифровые платежи. Проектирую RESTful API с акцентом на идемпотентность, слежу за согласованностью данных, настраиваю Prometheus + Grafana для наблюдаемости. Это моя специализация — высоконагруженные системы, где ошибка в данных стоит денег.
+Потом — Sergek Group, платформа мониторинга городского трафика. Обрабатывали поток событий от сотен камер и датчиков в реальном времени. Оптимизировал consumer'ы: заменил поштучную обработку на batch-вставки в ClickHouse (буфер 500 сообщений, flush каждые 100ms) — это дало 10x рост throughput. Там же столкнулся с задачами профилирования и поиска bottleneck'ов под нагрузкой.
 
-Ищу место, где есть интересные инженерные задачи и сильная команда, у которой можно расти.
+Сейчас в eMoney.ge — цифровые платежи. Проектирую API с акцентом на идемпотентность (платежи нельзя задвоить), работаю с согласованностью данных при распределённых транзакциях, строю observability через Prometheus + Grafana. Слежу за p99 latency и error rate в реальном времени.
+
+В сумме: у меня есть опыт и с архитектурой (event sourcing, идемпотентность, distributed systems), и с низким уровнем — профилирование Go через pprof, понимание как работает GMP-планировщик, memory allocator, escape analysis.
+
+Ищу место, где есть реально высокая нагрузка и команда которая думает о производительности системно, а не только когда "всё упало".
 
 ---
 
@@ -360,6 +365,175 @@ var (
 **Дашборды:** смотрели на p50/p95/p99 latency, error rate, consumer lag для очередей. Алерты на p99 > 2s и error_rate > 1%.
 
 **Structured logging:** `slog` (или `zap`) с полями `request_id`, `user_id`, `payment_id` — чтобы трейсить конкретный платёж через все логи.
+
+---
+
+---
+
+## 15. "Расскажи про высоконагруженный проект который ты делал" (STAR)
+
+> **Используй:** batch consumer в Sergek + платёжный сервис в eMoney
+
+**Situation:** В Sergek Group система мониторинга трафика получала события от 200+ камер. Каждая камера слала 5-10 событий в секунду → 1000-2000 событий/сек в пике. Consumer читал из очереди и делал INSERT в ClickHouse на каждое событие.
+
+**Task:** система начала отставать — consumer lag рос, ClickHouse давал ошибки too many parts (признак частых мелких вставок).
+
+**Action:**
+1. Измерил: через Prometheus смотрел consumer lag и latency вставок. pprof показал что 90% CPU — в syscall от частых мелких write.
+2. Переписал consumer на батч-обработку: буфер `[]Event` на 500 элементов, flush по таймеру (100ms) или по заполнению. Один `INSERT INTO ... VALUES (batch)` вместо 500 одиночных.
+3. Добавил backpressure через buffered channel: если буфер флашера заполнен — consumer замедляется (Go channel backpressure бесплатно).
+4. Настроил алерт на lag > 5000 сообщений и на время флаша > 200ms.
+
+**Result:** consumer lag упал с 50k до <500 сообщений. ClickHouse CPU с 80% до 15%. Throughput вырос с 200 событий/сек до 2000+ событий/сек.
+
+```go
+// Схема batch consumer
+type BatchConsumer struct {
+    queue   <-chan Event
+    flusher chan []Event
+    buf     []Event
+    maxSize int
+    ticker  *time.Ticker
+}
+
+func (c *BatchConsumer) run(ctx context.Context) {
+    for {
+        select {
+        case event := <-c.queue:
+            c.buf = append(c.buf, event)
+            if len(c.buf) >= c.maxSize {
+                c.flush()
+            }
+        case <-c.ticker.C:
+            if len(c.buf) > 0 {
+                c.flush()
+            }
+        case <-ctx.Done():
+            c.flush()  // финальный flush при shutdown
+            return
+        }
+    }
+}
+```
+
+---
+
+## 16. "Как профилировал и оптимизировал Go приложение?"
+
+> **Ключевые слова:** pprof, escape analysis, sync.Pool, benchmarks
+
+**Процесс который использую:**
+
+1. **Измерить сначала** — запустить pprof CPU профиль под реальной нагрузкой (не microbenchmark):
+```bash
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+(pprof) top10 -cum   # топ по cumulative time
+(pprof) list hotFunc # построчный анализ
+(pprof) web          # flamegraph
+```
+
+2. **Найти аллокации** — heap профиль + benchmarks с `-benchmem`:
+```bash
+go test -bench=. -benchmem -memprofile=mem.prof
+go tool pprof mem.prof
+# ищем inuse_objects — живые объекты, не просто аллокации
+```
+
+3. **Escape analysis** — понять что улетает в heap:
+```bash
+go build -gcflags="-m" ./... 2>&1 | grep "escapes to heap"
+```
+
+**Что реально оптимизировал:**
+
+- **Убрал лишние аллокации в hot path** — парсер JSON-событий создавал `map[string]interface{}` на каждый запрос. Заменил на typed struct → 0 аллокаций на горячем пути, -40% CPU.
+
+- **sync.Pool для буферов** — HTTP handler создавал `[]byte` буфер для сборки ответа. Добавил sync.Pool → аллокации в этом хендлере упали с 3/op до 0/op:
+```go
+var bufPool = sync.Pool{New: func() interface{} { return make([]byte, 0, 4096) }}
+buf := bufPool.Get().([]byte)[:0]
+defer bufPool.Put(buf)
+```
+
+- **Предаллокация слайсов** — `make([]T, 0, expectedSize)` там где размер известен → избавились от N реаллокаций при append.
+
+- **strings.Builder вместо конкатенации** — в генераторе SQL-запросов была конкатенация строк в цикле → каждая итерация аллокация. Builder с одним Grow(n) → 1 аллокация.
+
+---
+
+## 17. "Как понимаешь работу Go под капотом?"
+
+> **Покажи глубину: GMP, memory allocator, GC**
+
+**GMP-планировщик:**
+Go использует M:N модель — M горутин на N OS потоков. P (processor) — это очередь runnable горутин, количество P = GOMAXPROCS (по умолчанию = CPU ядра). При блокирующем syscall M "паркуется", P уходит к другому M — OS поток не простаивает. Work stealing: пустой P крадёт половину очереди соседнего P.
+
+**Memory allocator:**
+tcmalloc-подобный, три уровня: mcache (per-P, без блокировок) → mcentral (с блокировкой) → mheap (mmap из ОС). Объекты по size classes (8, 16, 24 ... 32768 байт). Большие (>32KB) — сразу mheap. Горячий путь аллокации — только атомарная операция в mcache.
+
+**Почему это важно на практике:**
+- GOMAXPROCS в контейнере надо ставить по cpu.quota, не NumCPU → `go.uber.org/automaxprocs`
+- GOMEMLIMIT (Go 1.19+) — ставить 90% от container memory limit чтобы GC успевал до OOM
+- Много горутин в syscall → M потоков растёт → контекст свитчи OS → `GOMAXPROCS` не помогает → нужен netpoller (async I/O)
+
+---
+
+## 18. "Как работал с OS-уровнем в production?"
+
+> **Для ролей где требуют знание OS**
+
+В работе сталкивался с несколькими OS-уровневыми аспектами:
+
+**Процессы и syscalls:**
+- Go runtime использует epoll (Linux) для async I/O — горутины паркуются без блокировки OS потока. Это позволяет держать тысячи goroutine на 8 потоках.
+- Настраивал `ulimit -n` (открытые файловые дескрипторы) для сервисов с большим числом соединений. По умолчанию 1024 — убивает при >1000 concurrent connections.
+- Graceful shutdown через `SIGTERM` — Kubernetes посылает SIGTERM, потом через terminationGracePeriodSeconds — SIGKILL. Важно поймать SIGTERM и завершить текущие запросы.
+
+**Память:**
+- OOM Killer в Kubernetes убивал наш сервис. Диагностика: `dmesg | grep -i "killed process"`. Решение: правильный GOMEMLIMIT + memory request/limit в K8s манифесте.
+- mmap для чтения больших файлов конфигурации/сертификатов — zero-copy, ядро подгружает страницы лениво.
+
+**Сеть:**
+- `ss -tnp` и `netstat` для диагностики соединений. Видел кейс с накоплением TIME_WAIT при высоком трафике — решается через `SO_REUSEADDR` и keep-alive.
+- tcpdump в production для поимки странного поведения внешнего провайдера — снял pcap, открыл в Wireshark, увидел что провайдер присылает RST через 30 секунд бездействия. Решение: HTTP keep-alive с `IdleTimeout < 30s`.
+
+---
+
+## 19. "Как проектировал API для высоконагруженной системы?"
+
+> **Ключевые слова:** идемпотентность, rate limiting, connection pooling, timeouts**
+
+В eMoney проектировал payment API, где нагрузка до 500 RPS в пике:
+
+**Идемпотентность:** каждый платёжный запрос несёт `Idempotency-Key` в заголовке. Храним в Redis с TTL 24h. При дубликате — возвращаем cached response. Это критично при retry логике клиентов.
+
+**Таймауты везде:**
+```go
+// Внешний провайдер платежей
+ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+defer cancel()
+
+// HTTP клиент
+client := &http.Client{
+    Transport: &http.Transport{
+        MaxIdleConnsPerHost: 50,        // connection pool per host
+        IdleConnTimeout:     90*time.Second,
+        TLSHandshakeTimeout: 5*time.Second,
+    },
+    Timeout: 15 * time.Second,
+}
+```
+
+**Rate limiting:** token bucket на уровне user_id через Redis Lua script. 100 req/min per user, burst 20. Возвращаем 429 с `Retry-After` хедером.
+
+**Circuit breaker для внешних провайдеров:** если провайдер отвечает с ошибкой 5 раз подряд — открываем circuit на 30 секунд, не шлём запросы, возвращаем клиенту fail-fast. Использовали `github.com/sony/gobreaker`.
+
+**Connection pooling к БД:**
+```go
+db.SetMaxOpenConns(50)        // не больше 50 соединений
+db.SetMaxIdleConns(10)        // держать 10 в idle
+db.SetConnMaxLifetime(5 * time.Minute)  // переоткрывать соединения
+```
 
 ---
 
