@@ -20,6 +20,8 @@
 | `07_unsafe_performance.md` | unsafe.Pointer, zero-copy string↔[]byte, struct padding/false sharing, escape analysis, sync.Pool, pprof, flamegraph, GOGC/GOMEMLIMIT |
 | `08_testing.md` | Table-driven tests, testify, интерфейсы для тестируемости, моки, httptest, testcontainers, goleak, benchmarks |
 | `09_design_patterns.md` | Functional Options, Singleton, Factory, Builder, Adapter, Decorator, Observer, Strategy, Repository, Circuit Breaker, Outbox |
+| `10_oop_in_go.md` | Инкапсуляция, полиморфизм, абстракция, embedding vs наследование, утиная типизация |
+| `11_go_vs_languages.md` | Плюсы/минусы Go, сравнение с Python, Java, Rust, Node.js, где применяется |
 
 ### concurrency/
 | Файл | Темы |
