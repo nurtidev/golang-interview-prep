@@ -43,6 +43,8 @@
 | `07_elasticsearch.md` | Инвертированный индекс, PromQL, bool query, маппинг, агрегации |
 | `08_rabbitmq.md` | Exchange типы, ACK/NACK, DLQ, prefetch, RabbitMQ vs Kafka |
 | `09_functions_procedures.md` | Функции vs процедуры, триггеры, PL/pgSQL, вызов из Go |
+| ⭐ `10_sql_practice.md` | DDL схема (rides/users/payments), JOIN, GROUP BY, оконные функции, типовые задачи (топ-N, дубликаты, LEFT JOIN IS NULL), EXPLAIN, PK vs UNIQUE |
+| `11_normalization.md` | 1NF/2NF/3NF/BCNF — правила, примеры нарушений и исправлений, денормализация как трейдофф |
 
 ### infrastructure/
 | Файл | Темы |
