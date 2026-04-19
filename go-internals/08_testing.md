@@ -391,3 +391,303 @@ func (m MockClock) Now() time.Time { return m.T }
 
 svc := NewService(MockClock{T: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)})
 ```
+
+---
+
+## 9. Testcontainers — реальная БД в тестах
+
+**Проблема моков для БД:** мок репозитория не проверяет реальные SQL-запросы, индексы, транзакции. Мокированные тесты проходят, а на проде падают из-за неправильного JOIN или нарушения constraint.
+
+**Testcontainers** запускает реальный Docker-контейнер с PostgreSQL прямо в тесте.
+
+```go
+import (
+    "github.com/testcontainers/testcontainers-go"
+    "github.com/testcontainers/testcontainers-go/modules/postgres"
+)
+
+func TestOrderRepo_Integration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test")
+    }
+
+    ctx := context.Background()
+
+    // Запускаем PostgreSQL в Docker
+    pgContainer, err := postgres.RunContainer(ctx,
+        testcontainers.WithImage("postgres:16-alpine"),
+        postgres.WithDatabase("testdb"),
+        postgres.WithUsername("test"),
+        postgres.WithPassword("test"),
+        testcontainers.WithWaitStrategy(
+            wait.ForLog("database system is ready to accept connections").
+                WithOccurrence(2).WithStartupTimeout(30*time.Second),
+        ),
+    )
+    require.NoError(t, err)
+    defer pgContainer.Terminate(ctx)
+
+    connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+    require.NoError(t, err)
+
+    db, err := sqlx.Connect("postgres", connStr)
+    require.NoError(t, err)
+
+    // Применяем миграции
+    _, err = db.Exec(`
+        CREATE TABLE orders (
+            id SERIAL PRIMARY KEY,
+            user_id INT NOT NULL,
+            status VARCHAR(20) DEFAULT 'pending',
+            amount DECIMAL(10,2),
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `)
+    require.NoError(t, err)
+
+    repo := NewOrderRepo(db)
+
+    // Тест с реальной БД
+    order, err := repo.Create(ctx, &Order{UserID: 1, Amount: 999.99})
+    require.NoError(t, err)
+    assert.NotZero(t, order.ID)
+
+    fetched, err := repo.GetByID(ctx, order.ID)
+    require.NoError(t, err)
+    assert.Equal(t, order.ID, fetched.ID)
+    assert.Equal(t, "pending", fetched.Status)
+}
+```
+
+**Паттерн TestMain — один контейнер на весь пакет:**
+
+```go
+var testDB *sqlx.DB
+
+func TestMain(m *testing.M) {
+    ctx := context.Background()
+
+    pgContainer, _ := postgres.RunContainer(ctx, ...)
+    connStr, _ := pgContainer.ConnectionString(ctx, "sslmode=disable")
+    testDB, _ = sqlx.Connect("postgres", connStr)
+
+    runMigrations(testDB)
+
+    code := m.Run() // запускаем все тесты
+
+    pgContainer.Terminate(ctx)
+    os.Exit(code)
+}
+```
+
+**Когда интеграционные тесты важнее unit:**
+- Сложные SQL-запросы с JOIN, оконными функциями, индексами
+- Транзакционная логика (ACID, deadlock detection)
+- Миграции схемы
+- Специфичные фичи БД (JSONB, array operators, upsert)
+
+---
+
+## 10. Property-Based Testing
+
+**Идея:** вместо конкретных примеров задаём **свойства** которые должны выполняться для любых входных данных. Фреймворк генерирует тысячи случайных кейсов.
+
+Библиотека: `github.com/leanovate/gopter`
+
+```go
+import (
+    "github.com/leanovate/gopter"
+    "github.com/leanovate/gopter/gen"
+    "github.com/leanovate/gopter/prop"
+)
+
+// Свойство: сортировка идемпотентна
+// sort(sort(x)) == sort(x)
+func TestSort_Idempotent(t *testing.T) {
+    properties := gopter.NewProperties(nil)
+
+    properties.Property("sort is idempotent", prop.ForAll(
+        func(nums []int) bool {
+            first := make([]int, len(nums))
+            copy(first, nums)
+            sort.Ints(first)
+
+            second := make([]int, len(first))
+            copy(second, first)
+            sort.Ints(second)
+
+            return reflect.DeepEqual(first, second)
+        },
+        gen.SliceOf(gen.Int()),
+    ))
+
+    properties.TestingRun(t)
+}
+
+// Свойство: encode→decode возвращает исходный объект
+func TestJSON_RoundTrip(t *testing.T) {
+    properties := gopter.NewProperties(nil)
+
+    properties.Property("json roundtrip", prop.ForAll(
+        func(id int64, amount float64, status string) bool {
+            original := Order{ID: id, Amount: amount, Status: status}
+
+            data, err := json.Marshal(original)
+            if err != nil {
+                return true // невалидный input — пропускаем
+            }
+
+            var decoded Order
+            if err := json.Unmarshal(data, &decoded); err != nil {
+                return false
+            }
+
+            return original == decoded
+        },
+        gen.Int64(),
+        gen.Float64(),
+        gen.AlphaString(),
+    ))
+
+    properties.TestingRun(t)
+}
+```
+
+**Когда применять:**
+- Математические инварианты (сортировка, поиск, хэширование)
+- Encode/Decode, Marshal/Unmarshal пары
+- Парсеры и валидаторы — граничные значения находит автоматически
+- Бизнес-правила с широким диапазоном входных данных
+
+**Shrinking:** при нахождении падающего кейса фреймворк автоматически упрощает входные данные до минимального воспроизводящего примера.
+
+---
+
+## 11. Нагрузочное тестирование с k6
+
+**k6** — инструмент нагрузочного тестирования, скрипты на JavaScript.
+
+```javascript
+// load_test.js
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { Rate } from 'k6/metrics';
+
+const errorRate = new Rate('errors');
+
+export const options = {
+    stages: [
+        { duration: '30s', target: 50 },   // ramp-up: 0 → 50 VU за 30 сек
+        { duration: '1m',  target: 50 },   // держим 50 VU 1 минуту
+        { duration: '30s', target: 200 },  // spike: 50 → 200 VU
+        { duration: '1m',  target: 200 },  // держим пиковую нагрузку
+        { duration: '30s', target: 0 },    // ramp-down
+    ],
+    thresholds: {
+        http_req_duration: ['p(95)<500'],  // 95% запросов < 500ms
+        http_req_failed:   ['rate<0.01'],  // ошибок < 1%
+        errors:            ['rate<0.05'],
+    },
+};
+
+export default function () {
+    const res = http.post('http://localhost:8080/api/orders',
+        JSON.stringify({ user_id: 1, product_id: 42, quantity: 1 }),
+        { headers: { 'Content-Type': 'application/json' } },
+    );
+
+    const ok = check(res, {
+        'status is 201':      (r) => r.status === 201,
+        'response time < 1s': (r) => r.timings.duration < 1000,
+    });
+
+    errorRate.add(!ok);
+    sleep(1);
+}
+```
+
+```bash
+# Запуск
+k6 run load_test.js
+
+# С выводом метрик в InfluxDB/Prometheus
+k6 run --out influxdb=http://localhost:8086/k6 load_test.js
+```
+
+**Ключевые метрики в результатах k6:**
+
+| Метрика | Что означает |
+|---------|-------------|
+| `http_req_duration` | Полное время запроса (latency) |
+| `http_reqs` | Throughput — запросов в секунду |
+| `http_req_failed` | Доля ошибок |
+| `http_req_waiting` | Time To First Byte (TTFB) |
+| `vus` | Активные виртуальные пользователи |
+
+---
+
+## 12. Throughput vs Latency под нагрузкой
+
+**Throughput** — сколько запросов в секунду обрабатывает система (RPS).
+
+**Latency** — время ответа на один запрос (мс). Смотрим на перцентили:
+- `p50` — медиана, типичный пользователь
+- `p95` — 95% пользователей получают ответ быстрее этого значения
+- `p99` — хвостовая латентность, "самые медленные"
+
+**Почему они конфликтуют под нагрузкой:**
+
+```
+                    Throughput
+                        ↑
+        saturation ─────┤ ←── throughput выходит на плато
+        point      ─────┤
+                        │         ↗ latency резко растёт
+                        │      ↗
+                        │   ↗
+                        └──────────────────→ VU (нагрузка)
+```
+
+При низкой нагрузке: latency низкая, throughput растёт линейно.
+При насыщении: очереди в сервисе заполняются → latency растёт экспоненциально, throughput выходит на плато.
+
+**Закон Литтла:** `L = λ × W`
+- L = среднее число запросов в системе
+- λ = throughput (RPS)
+- W = среднее время ответа (latency)
+
+Если throughput не растёт, а latency растёт — система насыщена. Нужно масштабировать или оптимизировать.
+
+**Что смотреть при анализе результатов k6:**
+
+```
+✓ p95 latency < 500ms      → норма
+✗ p95 latency = 2000ms     → система перегружена
+✓ error rate < 1%           → норма
+✗ error rate = 15%          → connection pool исчерпан или OOM
+
+Если throughput вырос, но p99 резко выросла:
+→ горячий путь в коде, GC паузы, lock contention, медленные запросы в БД
+```
+
+**Типичные причины деградации:**
+- Исчерпан пул соединений к БД — запросы встают в очередь
+- GC давление — частые паузы на сборку мусора
+- Lock contention — горутины ждут мьютекс
+- Slow queries — один медленный запрос блокирует воркер
+
+---
+
+## Вопросы с интервью (дополнение)
+
+**Q: Когда использовать Testcontainers вместо моков для БД?**
+
+**Ответ:** Моки для БД — когда тестируем бизнес-логику сервисного слоя, БД не суть. Testcontainers — когда тестируем репозиторный слой: реальные SQL-запросы, миграции, транзакции, constraint'ы. Нас однажды обожгло: мокированные тесты проходили, но на проде падала вставка из-за UNIQUE violation которую мок не проверял. После перехода на Testcontainers такие баги ловятся в CI.
+
+**Q: Что такое property-based testing и когда он лучше unit-тестов?**
+
+**Ответ:** Property-based тест задаёт инвариант (свойство) которое должно выполняться для любых входных данных, фреймворк генерирует тысячи случайных кейсов. Лучше unit-тестов когда: тестируем парсеры, кодеки, математические функции — сложно вручную придумать все edge cases. При нахождении бага — автоматически находит минимальный воспроизводящий пример (shrinking).
+
+**Q: p95 latency выросла с 200ms до 800ms под нагрузкой. Как диагностировать?**
+
+**Ответ:** Смотрим по порядку: 1) `EXPLAIN ANALYZE` на медленные запросы в БД — возможно full scan без индекса, 2) размер пула соединений к БД — если запросы ждут соединения, 3) `go tool pprof` — CPU профиль под нагрузкой, горячие пути, 4) метрики GC (`go_gc_duration_seconds`) — паузы, 5) lock contention — `runtime.SetMutexProfileFraction`. Чаще всего виновата БД или исчерпанный connection pool.
