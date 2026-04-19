@@ -30,12 +30,14 @@
 | ⭐ `02_channels.md` | Аксиомы каналов, select, nil канал, утечки |
 | `03_patterns.md` | Fan-In, Fan-Out, Pipeline, Worker Pool, Семафор |
 | `04_sync_primitives.md` | Mutex, RWMutex, atomic, CAS, WaitGroup, deadlock |
+| ⭐ `05_real_cases.md` | Живые кейсы: Worker Pool, Fan-In/Out, Pipeline, Rate Limiter, Semaphore, Graceful Shutdown, Hedged Requests |
 
 ### databases/
 | Файл | Темы |
 |------|------|
 | ⭐ `01_indexes_transactions.md` | B-Tree, GIN, составные индексы, ACID, уровни изоляции, оконные функции |
 | ⭐ `02_postgresql.md` | MVCC, WAL, JSONB, репликация, партиционирование, PgBouncer |
+| ⭐ `02_postgres_internals.md` | MVCC глубоко, bloat/VACUUM, WAL и репликация, Query Planner, массовый UPDATE батчами, шардирование |
 | `03_redis.md` | Структуры данных, персистентность, кластер, паттерны кеширования, distributed lock |
 | `04_kafka.md` | Архитектура, партиции, consumer groups, гарантии доставки, Outbox pattern |
 | `05_mysql.md` | InnoDB, кластерный индекс, репликация, MySQL vs PostgreSQL |
@@ -84,6 +86,7 @@
 | Файл | Темы |
 |------|------|
 | ⭐ `01_fundamentals.md` | Scalability, Performance, back-of-the-envelope, CAP теорема |
+| ⭐ `11_ozon_system_design.md` | Фреймворк решения, CAP, Eventual Consistency, типовые задачи Ozon (уведомления, корзина, поиск), выбор БД, паттерны масштабирования, Saga, Outbox |
 | `02_caching_api.md` | Стратегии кэширования, REST vs gRPC, rate limiting, observability |
 | `03_databases.md` | Выбор БД, SQL vs NoSQL, шардирование, денормализация |
 | `04_distributed_storage.md` | Репликация, консистентность, distributed transactions |
